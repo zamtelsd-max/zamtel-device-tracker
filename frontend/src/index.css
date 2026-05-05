@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Zamtel brand */
+:root {
+  --zamtel-green: #00843D;
+  --zamtel-pink: #E4007C;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 font-sans;
+  min-height: 100vh;
+}
+
+/* Leaflet map container */
+.leaflet-container {
+  @apply rounded-lg;
+  z-index: 1;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 rounded;
+}
+
+/* Status badge colours */
+.badge-active { @apply bg-green-100 text-green-800; }
+.badge-inactive { @apply bg-amber-100 text-amber-800; }
+.badge-pending_police_report { @apply bg-purple-100 text-purple-800; }
+.badge-pending_damage_verification { @apply bg-orange-100 text-orange-800; }
+.badge-pending_ga_verification { @apply bg-teal-100 text-teal-800; }
+.badge-closed_lost_stolen { @apply bg-gray-100 text-gray-700; }
+.badge-closed_damaged { @apply bg-gray-100 text-gray-700; }
+.badge-closed_inactive_resolved { @apply bg-gray-100 text-gray-700; }

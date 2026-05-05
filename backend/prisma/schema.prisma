@@ -1,0 +1,152 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["dt"]
+}
+
+enum DsaOrRetailer {
+  DSA
+  RETAILER
+
+  @@schema("dt")
+}
+
+enum DeviceStatus {
+  active
+  inactive
+  pending_police_report
+  pending_damage_verification
+  pending_ga_verification
+  closed_lost_stolen
+  closed_damaged
+  closed_inactive_resolved
+
+  @@schema("dt")
+}
+
+enum ClosureType {
+  lost_stolen
+  damaged
+  inactive_resolved
+
+  @@schema("dt")
+}
+
+enum UserRole {
+  trade_auditor
+  back_office
+  project_manager
+  head_of_sales
+  project_lead
+
+  @@schema("dt")
+}
+
+model User {
+  id             String   @id @default(uuid())
+  username       String   @unique
+  name           String
+  role           UserRole
+  passwordHash   String   @map("password_hash")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  allocatedDevices  Device[]         @relation("AllocatedAuditor")
+  followUps         FollowUp[]
+  closureEvidences  ClosureEvidence[]
+  auditLogs         AuditLog[]
+
+  @@map("users")
+  @@schema("dt")
+}
+
+model Device {
+  id                   String         @id @default(uuid())
+  dealerCode           String         @unique @map("dealer_code")
+  agentName            String?        @map("agent_name")
+  msisdn               String?
+  aseBdcTse            String?        @map("ase_bdc_tse")
+  province             String?
+  favouriteSite        String?        @map("favourite_site")
+  teamLead             String?        @map("team_lead")
+  dsaOrRetailer        DsaOrRetailer? @map("dsa_or_retailer")
+  imei1                String?
+  imei2                String?
+  simSerial            String?        @map("sim_serial")
+  phoneModel           String?        @map("phone_model")
+  region               String?
+  rbm                  String?
+  status               DeviceStatus   @default(inactive)
+  allocatedToAuditorId String?        @map("allocated_to_auditor_id")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+  allocatedAuditor  User?             @relation("AllocatedAuditor", fields: [allocatedToAuditorId], references: [id])
+  followUps         FollowUp[]
+  closureEvidences  ClosureEvidence[]
+  auditLogs         AuditLog[]
+
+  @@map("devices")
+  @@schema("dt")
+}
+
+model FollowUp {
+  id             String   @id @default(uuid())
+  deviceId       String   @map("device_id")
+  auditorId      String   @map("auditor_id")
+  notes          String?
+  reportedStatus String?  @map("reported_status")
+  latitude       Float?
+  longitude      Float?
+  locationName   String?  @map("location_name")
+  visitedAt      DateTime @default(now()) @map("visited_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  device   Device @relation(fields: [deviceId], references: [id])
+  auditor  User   @relation(fields: [auditorId], references: [id])
+
+  @@map("follow_ups")
+  @@schema("dt")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  deviceId  String?  @map("device_id")
+  action    String
+  oldValue  Json?    @map("old_value")
+  newValue  Json?    @map("new_value")
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User    @relation(fields: [userId], references: [id])
+  device Device? @relation(fields: [deviceId], references: [id])
+
+  @@map("audit_logs")
+  @@schema("dt")
+}
+
+model ClosureEvidence {
+  id              String      @id @default(uuid())
+  deviceId        String      @map("device_id")
+  backOfficeId    String      @map("back_office_id")
+  closureType     ClosureType @map("closure_type")
+  policeReportRef String?     @map("police_report_ref")
+  receiptNumber   String?     @map("receipt_number")
+  gaTransactionId String?     @map("ga_transaction_id")
+  verifierName    String?     @map("verifier_name")
+  notes           String?
+  closedAt        DateTime    @default(now()) @map("closed_at")
+
+  device     Device @relation(fields: [deviceId], references: [id])
+  backOffice User   @relation(fields: [backOfficeId], references: [id])
+
+  @@map("closure_evidence")
+  @@schema("dt")
+}
