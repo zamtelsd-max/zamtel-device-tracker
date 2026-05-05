@@ -123,6 +123,72 @@ dashboardRouter.get('/allocation', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// GET /api/v1/dashboard/auditor-summary
+dashboardRouter.get('/auditor-summary', async (req: AuthRequest, res: Response) => {
+  try {
+    // All trade auditors
+    const auditors = await prisma.user.findMany({
+      where: { role: 'trade_auditor' },
+      select: { id: true, name: true, username: true },
+    });
+
+    // All devices that have been assigned — raw query to avoid TS circular type issue with groupBy+where
+    const deviceGroups = await prisma.$queryRaw<Array<{auditor_id: string, status: string, cnt: bigint}>>`
+      SELECT allocated_to_auditor_id as auditor_id, status, COUNT(*)::int as cnt
+      FROM dt.devices
+      WHERE allocated_to_auditor_id IS NOT NULL
+      GROUP BY allocated_to_auditor_id, status
+    `;
+
+    // Build a map: auditorId -> status counts
+    const auditorMap: Record<string, any> = {};
+    for (const aud of auditors) {
+      auditorMap[aud.id] = {
+        id: aud.id,
+        name: aud.name,
+        username: aud.username,
+        total: 0,
+        active: 0,
+        inactive: 0,
+        pendingPolice: 0,
+        pendingDamage: 0,
+        pendingGA: 0,
+        closed: 0,
+      };
+    }
+
+    for (const row of deviceGroups) {
+      const aid = row.auditor_id;
+      if (!auditorMap[aid]) continue;
+      const count = Number(row.cnt);
+      auditorMap[aid].total += count;
+      if (row.status === 'active') auditorMap[aid].active += count;
+      else if (row.status === 'inactive') auditorMap[aid].inactive += count;
+      else if (row.status === 'pending_police_report') auditorMap[aid].pendingPolice += count;
+      else if (row.status === 'pending_damage_verification') auditorMap[aid].pendingDamage += count;
+      else if (row.status === 'pending_ga_verification') auditorMap[aid].pendingGA += count;
+      else if (row.status.startsWith('closed_')) auditorMap[aid].closed += count;
+    }
+
+    // Also count follow-ups per auditor
+    const followUpCounts = await prisma.$queryRaw<Array<{auditor_id: string, cnt: bigint}>>`
+      SELECT auditor_id, COUNT(*)::int as cnt FROM dt.follow_ups GROUP BY auditor_id
+    `;
+    const fuMap: Record<string, number> = {};
+    for (const f of followUpCounts) fuMap[f.auditor_id] = Number(f.cnt);
+
+    const result = Object.values(auditorMap).map((a: any) => ({
+      ...a,
+      followUps: fuMap[a.id] || 0,
+    }));
+
+    return res.json(result);
+  } catch (err) {
+    console.error('Auditor summary error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/v1/dashboard/pending-closures
 dashboardRouter.get('/pending-closures', async (req: AuthRequest, res: Response) => {
   try {
