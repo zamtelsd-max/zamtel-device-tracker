@@ -102,7 +102,7 @@ export default function MapDevicePage() {
       setLat(d.mapLatitude  ?? null);
       setLng(d.mapLongitude ?? null);
     } catch (e: any) {
-      const msg = e.response?.data?.error || 'No device found — try MSISDN or dealer code';
+      const msg = e.response?.data?.error || 'Not found in active devices — check the IMEI and try again';
       setLookupError(msg);
     } finally {
       setLookupLoading(false);
@@ -194,7 +194,7 @@ export default function MapDevicePage() {
               <span className="text-xl">🔍</span> Step 1 — Scan or Enter Device ID
             </h2>
             <p className="text-xs text-gray-400 mb-3">
-              Accepts: <strong>IMEI 1</strong> (Phone IMEI No 1) · <strong>IMEI 2</strong> (Phone IMEI No 2) · <strong>MSISDN</strong> · <strong>Dealer Code</strong>
+              Searches the <strong>385 active devices</strong> by IMEI 1, IMEI 2, MSISDN, or Dealer Code
             </p>
             <div className="flex gap-2">
               <input
@@ -222,7 +222,7 @@ export default function MapDevicePage() {
               </p>
             )}
             <p className="mt-2 text-xs text-gray-400">
-              💡 Barcode scanners auto-submit on Enter. For devices without IMEI, use the MSISDN (e.g. <code>260954566341</code> or <code>0954566341</code>) or dealer code (e.g. <code>CBT005309</code>).
+              💡 Barcode scanners auto-submit on Enter. All 385 active devices have IMEI loaded — scan either IMEI 1 or IMEI 2.
             </p>
           </div>
 

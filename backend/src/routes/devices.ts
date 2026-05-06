@@ -19,6 +19,7 @@ devicesRouter.get('/lookup-imei', async (req: AuthRequest, res: Response) => {
 
   const device = await prisma.device.findFirst({
     where: {
+      status: 'active',   // only the 385 active devices
       OR: [
         { imei1: raw },
         { imei2: raw },
@@ -29,7 +30,7 @@ devicesRouter.get('/lookup-imei', async (req: AuthRequest, res: Response) => {
     },
     include: { allocatedAuditor: { select: { id: true, name: true, username: true } } },
   });
-  if (!device) return res.status(404).json({ error: 'No device found with that IMEI, MSISDN, or dealer code' });
+  if (!device) return res.status(404).json({ error: 'No active device found with that IMEI' });
   return res.json(device);
 });
 
