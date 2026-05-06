@@ -16,11 +16,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 globally
+// Handle auth errors globally
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    // Only auto-logout on 401 and only if not already on login page
+    if (err.response?.status === 401 && !window.location.hash.includes('/login')) {
       localStorage.removeItem('zamtel_token');
       localStorage.removeItem('zamtel_user');
       window.location.hash = '#/login';

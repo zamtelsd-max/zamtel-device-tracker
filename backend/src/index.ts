@@ -9,11 +9,15 @@ import { dashboardRouter } from './routes/dashboard';
 import { usersRouter } from './routes/users';
 import { exportRouter } from './routes/export';
 import { networkRouter } from './routes/network';
+import { prisma } from './utils/prisma';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3005;
+
+// Trust Caddy reverse proxy — required for rate-limit + correct IP detection
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());
@@ -66,5 +70,11 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 app.listen(PORT, () => {
   console.log(`Zamtel Device Tracker backend running on port ${PORT}`);
 });
+
+// Keep Neon DB connection alive — ping every 4 min to prevent idle connection drops
+setInterval(async () => {
+  try { await prisma.$queryRaw`SELECT 1`; }
+  catch (e) { console.error('DB keepalive failed:', e); }
+}, 4 * 60 * 1000);
 
 export default app;
