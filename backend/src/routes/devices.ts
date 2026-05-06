@@ -83,6 +83,24 @@ devicesRouter.get('/', async (req: AuthRequest, res: Response) => {
   return res.json({ total, page: pageNum, limit: limitNum, data: devices });
 });
 
+// GET /api/v1/devices/mapped  — all devices that have been mapped (have lat/lng)
+// MUST be before /:id to avoid Express treating "mapped" as an id param
+devicesRouter.get('/mapped', async (req: AuthRequest, res: Response) => {
+  const devices = await prisma.device.findMany({
+    where: { mapLatitude: { not: null }, mapLongitude: { not: null } },
+    select: {
+      id: true, dealerCode: true, agentName: true, phoneModel: true,
+      province: true, status: true, imei1: true, imei2: true, msisdn: true,
+      holderName: true, holderNrc: true, holderContact: true,
+      mapLatitude: true, mapLongitude: true, mappedAt: true, updatedAt: true,
+      lastSeenAt: true, lastSeenSource: true,
+      mappedBy: { select: { id: true, name: true } },
+    },
+    orderBy: { mappedAt: 'desc' },
+  });
+  return res.json(devices);
+});
+
 // GET /api/v1/devices/:id
 devicesRouter.get('/:id', async (req: AuthRequest, res: Response) => {
   const device = await prisma.device.findUnique({
@@ -290,19 +308,4 @@ devicesRouter.patch('/:id/map', requireRoles('trade_auditor', 'project_lead'), a
   }
 });
 
-// GET /api/v1/devices/mapped  — all devices that have been mapped (have lat/lng)
-devicesRouter.get('/mapped', async (req: AuthRequest, res: Response) => {
-  const devices = await prisma.device.findMany({
-    where: { mapLatitude: { not: null }, mapLongitude: { not: null } },
-    select: {
-      id: true, dealerCode: true, agentName: true, phoneModel: true,
-      province: true, status: true, imei1: true, imei2: true, msisdn: true,
-      holderName: true, holderNrc: true, holderContact: true,
-      mapLatitude: true, mapLongitude: true, mappedAt: true, updatedAt: true,
-      lastSeenAt: true, lastSeenSource: true,
-      mappedBy: { select: { id: true, name: true } },
-    },
-    orderBy: { mappedAt: 'desc' },
-  });
-  return res.json(devices);
-});
+
