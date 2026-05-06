@@ -173,9 +173,11 @@ devicesRouter.post('/:id/followup', requireRoles('trade_auditor', 'project_lead'
 
     // Determine new device status based on reported status
     let newDeviceStatus = device.status;
-    if (reportedStatus === 'lost_stolen') newDeviceStatus = 'pending_police_report';
-    else if (reportedStatus === 'damaged') newDeviceStatus = 'pending_damage_verification';
-    else if (reportedStatus === 'inactive_confirmed') newDeviceStatus = 'pending_ga_verification';
+    if      (reportedStatus === 'visited_active')    newDeviceStatus = 'active';
+    else if (reportedStatus === 'inactive_confirmed') newDeviceStatus = 'inactive';
+    else if (reportedStatus === 'not_found')          newDeviceStatus = 'inactive';
+    else if (reportedStatus === 'lost_stolen')        newDeviceStatus = 'pending_police_report';
+    else if (reportedStatus === 'damaged')            newDeviceStatus = 'pending_damage_verification';
 
     const [followUp] = await prisma.$transaction([
       prisma.followUp.create({
@@ -191,7 +193,13 @@ devicesRouter.post('/:id/followup', requireRoles('trade_auditor', 'project_lead'
       }),
       prisma.device.update({
         where: { id: deviceId },
-        data: { status: newDeviceStatus, updatedAt: new Date() },
+        data: {
+          status: newDeviceStatus,
+          updatedAt: new Date(),
+          // Record auditor visit time as lastSeenAt (source = field_visit)
+          lastSeenAt: new Date(),
+          lastSeenSource: 'field_visit',
+        },
       }),
     ]);
 
