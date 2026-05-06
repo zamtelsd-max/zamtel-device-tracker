@@ -38,6 +38,13 @@ export interface Device {
   status: DeviceStatus;
   allocatedToAuditorId?: string;
   allocatedAuditor?: { id: string; name: string; username: string } | null;
+  // Mapping fields
+  holderName?: string;
+  holderNrc?: string;
+  holderContact?: string;
+  mapLatitude?: number;
+  mapLongitude?: number;
+  mappedAt?: string;
   followUps?: FollowUp[];
   closureEvidences?: ClosureEvidence[];
   createdAt: string;

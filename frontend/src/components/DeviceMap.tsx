@@ -4,13 +4,25 @@ import { MapPoint } from '../types';
 import { STATUS_COLORS, STATUS_LABELS } from '../utils/statusHelpers';
 import api from '../utils/api';
 
+interface MappedDevice {
+  id: string; dealerCode: string; agentName?: string; phoneModel?: string;
+  province?: string; status: string;
+  holderName?: string; holderNrc?: string; holderContact?: string;
+  mapLatitude: number; mapLongitude: number; mappedAt?: string;
+  mappedBy?: { name: string };
+}
+
 export default function DeviceMap() {
   const [points, setPoints] = useState<MapPoint[]>([]);
+  const [mapped, setMapped] = useState<MappedDevice[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/dashboard/map')
-      .then(res => setPoints(res.data))
+    Promise.all([
+      api.get('/dashboard/map'),
+      api.get('/devices/mapped').catch(() => ({ data: [] })),
+    ])
+      .then(([r1, r2]) => { setPoints(r1.data); setMapped(r2.data); })
       .catch(err => console.error('Map data error:', err))
       .finally(() => setLoading(false));
   }, []);
@@ -33,15 +45,16 @@ export default function DeviceMap() {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        {/* Follow-up visit pins */}
         {points.map((point, idx) => (
           <CircleMarker
-            key={idx}
+            key={`fu-${idx}`}
             center={[point.latitude, point.longitude]}
-            radius={8}
+            radius={7}
             pathOptions={{
               color: STATUS_COLORS[point.device.status] || '#6B7280',
               fillColor: STATUS_COLORS[point.device.status] || '#6B7280',
-              fillOpacity: 0.8,
+              fillOpacity: 0.7,
               weight: 1,
             }}
           >
@@ -51,6 +64,34 @@ export default function DeviceMap() {
                 <div>{point.device.agentName}</div>
                 <div className="capitalize text-gray-600">{STATUS_LABELS[point.device.status]}</div>
                 {point.locationName && <div className="text-gray-500">{point.locationName}</div>}
+              </div>
+            </Popup>
+          </CircleMarker>
+        ))}
+        {/* Holder-mapped device pins (larger, pink border) */}
+        {mapped.map(d => (
+          <CircleMarker
+            key={`md-${d.id}`}
+            center={[d.mapLatitude, d.mapLongitude]}
+            radius={10}
+            pathOptions={{
+              color: '#E4007C',
+              fillColor: STATUS_COLORS[d.status as any] || '#6B7280',
+              fillOpacity: 0.9,
+              weight: 2.5,
+            }}
+          >
+            <Popup maxWidth={240}>
+              <div className="text-sm space-y-0.5">
+                <div className="font-bold">{d.dealerCode}</div>
+                {d.agentName    && <div>{d.agentName}</div>}
+                {d.phoneModel   && <div className="text-gray-500">{d.phoneModel}</div>}
+                <div className="border-t pt-1 mt-1">
+                  {d.holderName    && <div className="font-semibold">👤 {d.holderName}</div>}
+                  {d.holderNrc     && <div className="text-gray-600 text-xs">NRC: {d.holderNrc}</div>}
+                  {d.holderContact && <div className="text-gray-600 text-xs">📞 {d.holderContact}</div>}
+                </div>
+                {d.province && <div className="text-gray-400 text-xs">{d.province}</div>}
               </div>
             </Popup>
           </CircleMarker>
@@ -65,6 +106,14 @@ export default function DeviceMap() {
             <span className="text-gray-600">{STATUS_LABELS[status as any]}</span>
           </div>
         ))}
+        <div className="flex items-center gap-1 font-semibold">
+          <div className="w-3 h-3 rounded-full border-2" style={{ borderColor: '#E4007C', backgroundColor: '#6B7280' }} />
+          <span className="text-gray-700">Mapped ({mapped.length})</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-full bg-gray-400" />
+          <span className="text-gray-500">Follow-ups ({points.length})</span>
+        </div>
       </div>
     </div>
   );

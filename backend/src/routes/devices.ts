@@ -6,6 +6,19 @@ import { writeAuditLog } from '../utils/audit';
 export const devicesRouter = Router();
 devicesRouter.use(authenticate);
 
+// GET /api/v1/devices/lookup-imei?imei=<imei1_or_imei2>
+devicesRouter.get('/lookup-imei', async (req: AuthRequest, res: Response) => {
+  const imei = (req.query.imei as string || '').trim();
+  if (!imei) return res.status(400).json({ error: 'imei parameter required' });
+
+  const device = await prisma.device.findFirst({
+    where: { OR: [{ imei1: imei }, { imei2: imei }] },
+    include: { allocatedAuditor: { select: { id: true, name: true, username: true } } },
+  });
+  if (!device) return res.status(404).json({ error: 'No device found with that IMEI' });
+  return res.json(device);
+});
+
 // GET /api/v1/devices/search?q=dealer_code
 devicesRouter.get('/search', async (req: AuthRequest, res: Response) => {
   const q = req.query.q as string;
@@ -216,4 +229,65 @@ devicesRouter.post('/:id/close', requireRoles('back_office', 'project_lead'), as
     console.error('Close error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// PATCH /api/v1/devices/:id/map  — save holder identity + GPS pin
+devicesRouter.patch('/:id/map', requireRoles('trade_auditor', 'project_lead'), async (req: AuthRequest, res: Response) => {
+  const deviceId  = req.params.id;
+  const userId    = req.user!.id;
+  const { holderName, holderNrc, holderContact, latitude, longitude, locationName } = req.body;
+
+  if (!holderName || !latitude || !longitude) {
+    return res.status(400).json({ error: 'holderName, latitude, and longitude are required' });
+  }
+
+  try {
+    const device = await prisma.device.findUnique({ where: { id: deviceId } });
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+
+    const updated = await prisma.device.update({
+      where: { id: deviceId },
+      data: {
+        holderName,
+        holderNrc:     holderNrc     || null,
+        holderContact: holderContact || null,
+        mapLatitude:   parseFloat(latitude),
+        mapLongitude:  parseFloat(longitude),
+        mappedAt:      new Date(),
+        mappedById:    userId,
+        // auto-activate if currently inactive and now mapped
+        status: device.status === 'inactive' ? 'active' : device.status,
+      },
+    });
+
+    await writeAuditLog({
+      userId,
+      deviceId,
+      action: 'MAP_DEVICE',
+      oldValue: { holderName: device.holderName, mapLatitude: device.mapLatitude, mapLongitude: device.mapLongitude },
+      newValue: { holderName, holderNrc, holderContact, latitude, longitude, locationName },
+      ipAddress: req.ip,
+    });
+
+    return res.json(updated);
+  } catch (err) {
+    console.error('Map device error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/v1/devices/mapped  — all devices that have been mapped (have lat/lng)
+devicesRouter.get('/mapped', async (req: AuthRequest, res: Response) => {
+  const devices = await prisma.device.findMany({
+    where: { mapLatitude: { not: null }, mapLongitude: { not: null } },
+    select: {
+      id: true, dealerCode: true, agentName: true, phoneModel: true,
+      province: true, status: true, imei1: true, imei2: true,
+      holderName: true, holderNrc: true, holderContact: true,
+      mapLatitude: true, mapLongitude: true, mappedAt: true,
+      mappedBy: { select: { id: true, name: true } },
+    },
+    orderBy: { mappedAt: 'desc' },
+  });
+  return res.json(devices);
 });

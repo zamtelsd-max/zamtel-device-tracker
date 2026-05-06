@@ -58,6 +58,7 @@ model User {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   allocatedDevices  Device[]         @relation("AllocatedAuditor")
+  mappedDevices     Device[]         @relation("MappedBy")
   followUps         FollowUp[]
   closureEvidences  ClosureEvidence[]
   auditLogs         AuditLog[]
@@ -84,10 +85,19 @@ model Device {
   rbm                  String?
   status               DeviceStatus   @default(inactive)
   allocatedToAuditorId String?        @map("allocated_to_auditor_id")
+  // Mapping fields — filled in during field audit
+  holderName           String?        @map("holder_name")
+  holderNrc            String?        @map("holder_nrc")
+  holderContact        String?        @map("holder_contact")
+  mapLatitude          Float?         @map("map_latitude")
+  mapLongitude         Float?         @map("map_longitude")
+  mappedAt             DateTime?      @map("mapped_at")
+  mappedById           String?        @map("mapped_by_id")
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt @map("updated_at")
 
   allocatedAuditor  User?             @relation("AllocatedAuditor", fields: [allocatedToAuditorId], references: [id])
+  mappedBy          User?             @relation("MappedBy", fields: [mappedById], references: [id])
   followUps         FollowUp[]
   closureEvidences  ClosureEvidence[]
   auditLogs         AuditLog[]

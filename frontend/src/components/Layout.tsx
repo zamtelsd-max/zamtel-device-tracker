@@ -37,6 +37,10 @@ export default function Layout() {
     if (['trade_auditor', 'project_lead'].includes(role || '')) {
       items.push({ to: '/devices-pool', label: 'Devices Pool', icon: '📱' });
       items.push({ to: '/my-devices', label: 'My Devices', icon: '🗂️' });
+      items.push({ to: '/map-devices', label: 'Map Devices', icon: '📍' });
+    }
+    if (['project_manager', 'head_of_sales'].includes(role || '')) {
+      items.push({ to: '/map-devices', label: 'Device Map', icon: '📍' });
     }
     if (['back_office', 'project_lead'].includes(role || '')) {
       items.push({ to: '/closure-queue', label: 'Closure Queue', icon: '✅' });
