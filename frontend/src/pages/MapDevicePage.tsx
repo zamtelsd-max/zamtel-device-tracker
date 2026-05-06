@@ -83,25 +83,26 @@ export default function MapDevicePage() {
 
   useEffect(() => { loadMapped(); }, [loadMapped]);
 
-  // ── IMEI lookup
+  // ── IMEI / MSISDN / dealer code lookup
   const handleLookup = async () => {
-    const imei = imeiInput.trim();
-    if (!imei) return;
+    // Strip all non-alphanumeric except hyphens (handles barcode scanner noise, trailing newlines, etc.)
+    const query = imeiInput.replace(/[^\w\-]/g, '').trim();
+    if (!query) return;
     setLookupLoading(true);
     setLookupError('');
     setDevice(null);
     try {
-      const res = await api.get(`/devices/lookup-imei?imei=${encodeURIComponent(imei)}`);
+      const res = await api.get(`/devices/lookup-imei?imei=${encodeURIComponent(query)}`);
       const d: Device = res.data;
       setDevice(d);
       // Pre-fill if already mapped
-      setHolderName(d.holderName  ?? '');
-      setHolderNrc(d.holderNrc    ?? '');
+      setHolderName(d.holderName       ?? '');
+      setHolderNrc(d.holderNrc         ?? '');
       setHolderContact(d.holderContact ?? '');
       setLat(d.mapLatitude  ?? null);
       setLng(d.mapLongitude ?? null);
     } catch (e: any) {
-      const msg = e.response?.data?.error || 'No device found with that IMEI';
+      const msg = e.response?.data?.error || 'No device found — try MSISDN or dealer code';
       setLookupError(msg);
     } finally {
       setLookupLoading(false);
@@ -189,9 +190,12 @@ export default function MapDevicePage() {
 
           {/* IMEI lookup */}
           <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
-            <h2 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              <span className="text-xl">🔍</span> Step 1 — Enter or Scan IMEI
+            <h2 className="font-semibold text-gray-800 mb-1 flex items-center gap-2">
+              <span className="text-xl">🔍</span> Step 1 — Scan or Enter Device ID
             </h2>
+            <p className="text-xs text-gray-400 mb-3">
+              Accepts: <strong>IMEI 1</strong> (Phone IMEI No 1) · <strong>IMEI 2</strong> (Phone IMEI No 2) · <strong>MSISDN</strong> · <strong>Dealer Code</strong>
+            </p>
             <div className="flex gap-2">
               <input
                 ref={imeiRef}
@@ -200,7 +204,7 @@ export default function MapDevicePage() {
                 value={imeiInput}
                 onChange={e => setImeiInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleLookup()}
-                placeholder="Enter IMEI number…"
+                placeholder="Scan IMEI or type MSISDN / dealer code…"
                 className="flex-1 border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-zamtel-green font-mono"
                 autoFocus
               />
@@ -218,7 +222,7 @@ export default function MapDevicePage() {
               </p>
             )}
             <p className="mt-2 text-xs text-gray-400">
-              Tip: most barcode scanners send an Enter keystroke automatically.
+              💡 Barcode scanners auto-submit on Enter. For devices without IMEI, use the MSISDN (e.g. <code>260954566341</code> or <code>0954566341</code>) or dealer code (e.g. <code>CBT005309</code>).
             </p>
           </div>
 

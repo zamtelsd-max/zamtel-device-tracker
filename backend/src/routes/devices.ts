@@ -6,16 +6,30 @@ import { writeAuditLog } from '../utils/audit';
 export const devicesRouter = Router();
 devicesRouter.use(authenticate);
 
-// GET /api/v1/devices/lookup-imei?imei=<imei1_or_imei2>
+// GET /api/v1/devices/lookup-imei?imei=<imei1_or_imei2_or_msisdn_or_dealercode>
+// Searches in priority order: IMEI1 → IMEI2 → MSISDN (normalised) → dealer code (contains)
 devicesRouter.get('/lookup-imei', async (req: AuthRequest, res: Response) => {
-  const imei = (req.query.imei as string || '').trim();
-  if (!imei) return res.status(400).json({ error: 'imei parameter required' });
+  const raw = (req.query.imei as string || '').trim();
+  if (!raw) return res.status(400).json({ error: 'imei parameter required' });
+
+  // Normalise MSISDN: leading 0 → 260
+  let msisdnVariant = raw;
+  if (/^\d{10}$/.test(raw) && raw.startsWith('0')) msisdnVariant = '260' + raw.slice(1);
+  else if (/^\d{9}$/.test(raw)) msisdnVariant = '260' + raw;
 
   const device = await prisma.device.findFirst({
-    where: { OR: [{ imei1: imei }, { imei2: imei }] },
+    where: {
+      OR: [
+        { imei1: raw },
+        { imei2: raw },
+        { msisdn: raw },
+        { msisdn: msisdnVariant },
+        { dealerCode: { contains: raw, mode: 'insensitive' } },
+      ],
+    },
     include: { allocatedAuditor: { select: { id: true, name: true, username: true } } },
   });
-  if (!device) return res.status(404).json({ error: 'No device found with that IMEI' });
+  if (!device) return res.status(404).json({ error: 'No device found with that IMEI, MSISDN, or dealer code' });
   return res.json(device);
 });
 
