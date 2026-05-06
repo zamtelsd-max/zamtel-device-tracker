@@ -282,9 +282,10 @@ devicesRouter.get('/mapped', async (req: AuthRequest, res: Response) => {
     where: { mapLatitude: { not: null }, mapLongitude: { not: null } },
     select: {
       id: true, dealerCode: true, agentName: true, phoneModel: true,
-      province: true, status: true, imei1: true, imei2: true,
+      province: true, status: true, imei1: true, imei2: true, msisdn: true,
       holderName: true, holderNrc: true, holderContact: true,
       mapLatitude: true, mapLongitude: true, mappedAt: true, updatedAt: true,
+      lastSeenAt: true, lastSeenSource: true,
       mappedBy: { select: { id: true, name: true } },
     },
     orderBy: { mappedAt: 'desc' },

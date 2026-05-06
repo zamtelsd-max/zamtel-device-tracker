@@ -85,6 +85,9 @@ model Device {
   rbm                  String?
   status               DeviceStatus   @default(inactive)
   allocatedToAuditorId String?        @map("allocated_to_auditor_id")
+  // Network activity — updated via MSISDN import, never touched by auditors
+  lastSeenAt           DateTime?      @map("last_seen_at")
+  lastSeenSource       String?        @map("last_seen_source")   // e.g. "network_import"
   // Mapping fields — filled in during field audit
   holderName           String?        @map("holder_name")
   holderNrc            String?        @map("holder_nrc")

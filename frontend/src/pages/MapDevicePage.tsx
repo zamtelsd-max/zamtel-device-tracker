@@ -15,9 +15,10 @@ function FlyTo({ lat, lng }: { lat: number; lng: number }) {
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface MappedDevice {
   id: string; dealerCode: string; agentName?: string; phoneModel?: string;
-  province?: string; status: string; imei1?: string; imei2?: string;
+  province?: string; status: string; imei1?: string; imei2?: string; msisdn?: string;
   holderName?: string; holderNrc?: string; holderContact?: string;
   mapLatitude: number; mapLongitude: number; mappedAt?: string; updatedAt?: string;
+  lastSeenAt?: string; lastSeenSource?: string;
   mappedBy?: { name: string };
 }
 
@@ -31,18 +32,23 @@ const STATUS_COLOR: Record<string, string> = {
 // A device is "online" if its status is active
 const isOnline = (d: MappedDevice) => d.status === 'active';
 
-// Human-readable last-seen derived from updatedAt or mappedAt
-function lastSeen(d: MappedDevice): string {
+// Human-readable last-seen — prefer network data, fall back to updatedAt/mappedAt
+function lastSeen(d: MappedDevice): { text: string; source: string } {
+  if (d.lastSeenAt) {
+    const diff = Date.now() - new Date(d.lastSeenAt).getTime();
+    const mins  = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days  = Math.floor(diff / 86400000);
+    const text  = mins < 1 ? 'Just now' : mins < 60 ? `${mins}m ago` : hours < 24 ? `${hours}h ago` : `${days}d ago`;
+    return { text, source: '📡 Network data' };
+  }
   const ts = d.updatedAt || d.mappedAt;
-  if (!ts) return 'Unknown';
+  if (!ts) return { text: 'Unknown', source: '' };
   const diff = Date.now() - new Date(ts).getTime();
-  const mins  = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
   const days  = Math.floor(diff / 86400000);
-  if (mins  < 1)   return 'Just now';
-  if (mins  < 60)  return `${mins}m ago`;
-  if (hours < 24)  return `${hours}h ago`;
-  return `${days}d ago`;
+  const hours = Math.floor(diff / 3600000);
+  const text  = days > 0 ? `${days}d ago` : `${hours}h ago`;
+  return { text, source: '🗂️ App activity' };
 }
 
 type FilterMode = 'all' | 'online' | 'offline';
@@ -386,11 +392,17 @@ export default function MapDevicePage() {
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${
                               online ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
                             }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${online ? 'bg-green-500' : 'bg-gray-400'}`} />
+                              <span className={`w-1.5 h-1.5 rounded-full ${online ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
                               {online ? 'Online' : 'Offline'}
                             </span>
                           </div>
-                          <div className="text-gray-400 text-xs">Last seen: {lastSeen(d)}</div>
+                          {(() => { const ls = lastSeen(d); return (
+                            <div className="text-gray-400 text-xs">
+                              Last seen: <strong className="text-gray-600">{ls.text}</strong>
+                              {ls.source && <span className="ml-1 text-gray-400">({ls.source})</span>}
+                            </div>
+                          ); })()}
+                          {d.msisdn && <div className="text-gray-400 text-xs font-mono">SIM: {d.msisdn}</div>}
                           {d.agentName  && <div className="text-gray-700">Agent: {d.agentName}</div>}
                           {d.phoneModel && <div className="text-gray-600">Model: {d.phoneModel}</div>}
                           {d.imei1      && <div className="text-gray-500 font-mono text-xs">IMEI1: {d.imei1}</div>}

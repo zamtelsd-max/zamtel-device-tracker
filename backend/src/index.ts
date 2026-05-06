@@ -8,6 +8,7 @@ import { devicesRouter } from './routes/devices';
 import { dashboardRouter } from './routes/dashboard';
 import { usersRouter } from './routes/users';
 import { exportRouter } from './routes/export';
+import { networkRouter } from './routes/network';
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ app.use('/api/v1/devices', devicesRouter);
 app.use('/api/v1/dashboard', dashboardRouter);
 app.use('/api/v1/users', usersRouter);
 app.use('/api/v1/export', exportRouter);
+app.use('/api/v1/network', networkRouter);
 
 // 404 handler
 app.use((req, res) => {

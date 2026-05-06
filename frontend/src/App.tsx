@@ -10,6 +10,7 @@ import ClosureQueuePage from './pages/ClosureQueuePage';
 import ReportsPage from './pages/ReportsPage';
 import AdminPage from './pages/AdminPage';
 import MapDevicePage from './pages/MapDevicePage';
+import NetworkImportPage from './pages/NetworkImportPage';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route path="devices-pool" element={<ProtectedRoute roles={['trade_auditor', 'project_lead']}><DevicesPoolPage /></ProtectedRoute>} />
         <Route path="my-devices" element={<ProtectedRoute roles={['trade_auditor', 'project_lead']}><MyDevicesPage /></ProtectedRoute>} />
         <Route path="map-devices" element={<ProtectedRoute roles={['trade_auditor', 'project_lead', 'project_manager', 'head_of_sales']}><MapDevicePage /></ProtectedRoute>} />
+        <Route path="network-import" element={<ProtectedRoute roles={['project_lead', 'project_manager', 'head_of_sales']}><NetworkImportPage /></ProtectedRoute>} />
         <Route path="closure-queue" element={<ProtectedRoute roles={['back_office', 'project_lead']}><ClosureQueuePage /></ProtectedRoute>} />
         <Route path="reports" element={<ProtectedRoute roles={['project_manager', 'head_of_sales', 'project_lead']}><ReportsPage /></ProtectedRoute>} />
         <Route path="admin" element={<ProtectedRoute roles={['project_lead']}><AdminPage /></ProtectedRoute>} />

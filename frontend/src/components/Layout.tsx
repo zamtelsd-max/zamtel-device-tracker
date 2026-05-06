@@ -47,6 +47,7 @@ export default function Layout() {
     }
     if (['project_manager', 'head_of_sales', 'project_lead'].includes(role || '')) {
       items.push({ to: '/reports', label: 'Reports', icon: '📈' });
+      items.push({ to: '/network-import', label: 'Network Import', icon: '📡' });
     }
     if (role === 'project_lead') {
       items.push({ to: '/admin', label: 'Admin', icon: '⚙️' });
