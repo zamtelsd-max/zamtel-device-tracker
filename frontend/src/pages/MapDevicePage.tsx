@@ -17,7 +17,7 @@ interface MappedDevice {
   id: string; dealerCode: string; agentName?: string; phoneModel?: string;
   province?: string; status: string; imei1?: string; imei2?: string;
   holderName?: string; holderNrc?: string; holderContact?: string;
-  mapLatitude: number; mapLongitude: number; mappedAt?: string;
+  mapLatitude: number; mapLongitude: number; mappedAt?: string; updatedAt?: string;
   mappedBy?: { name: string };
 }
 
@@ -25,8 +25,27 @@ const STATUS_COLOR: Record<string, string> = {
   active: '#00843D', inactive: '#6B7280',
   pending_police_report: '#DC2626', pending_damage_verification: '#D97706',
   pending_ga_verification: '#7C3AED',
-  closed_lost_stolen: '#000', closed_damaged: '#92400E', closed_inactive_resolved: '#374151',
+  closed_lost_stolen: '#111827', closed_damaged: '#92400E', closed_inactive_resolved: '#374151',
 };
+
+// A device is "online" if its status is active
+const isOnline = (d: MappedDevice) => d.status === 'active';
+
+// Human-readable last-seen derived from updatedAt or mappedAt
+function lastSeen(d: MappedDevice): string {
+  const ts = d.updatedAt || d.mappedAt;
+  if (!ts) return 'Unknown';
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins  = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days  = Math.floor(diff / 86400000);
+  if (mins  < 1)   return 'Just now';
+  if (mins  < 60)  return `${mins}m ago`;
+  if (hours < 24)  return `${hours}h ago`;
+  return `${days}d ago`;
+}
+
+type FilterMode = 'all' | 'online' | 'offline';
 
 export default function MapDevicePage() {
   // ── IMEI lookup state
@@ -46,8 +65,9 @@ export default function MapDevicePage() {
   const [saving, setSaving]               = useState(false);
 
   // ── Mapped devices for the live map
-  const [mapped, setMapped] = useState<MappedDevice[]>([]);
+  const [mapped, setMapped]     = useState<MappedDevice[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [filter, setFilter]     = useState<FilterMode>('all');
   const imeiRef = useRef<HTMLInputElement>(null);
 
   const loadMapped = useCallback(() => {
@@ -129,6 +149,11 @@ export default function MapDevicePage() {
   };
 
   const zambiaCentre: [number, number] = [-13.5, 28.5];
+  const onlineCount  = mapped.filter(isOnline).length;
+  const offlineCount = mapped.filter(d => !isOnline(d)).length;
+  const filteredMapped = filter === 'online'  ? mapped.filter(isOnline)
+                       : filter === 'offline' ? mapped.filter(d => !isOnline(d))
+                       : mapped;
 
   return (
     <div className="space-y-6">
@@ -136,7 +161,19 @@ export default function MapDevicePage() {
         <h1 className="text-2xl font-bold text-gray-900">📍 Map Devices</h1>
         <p className="text-sm text-gray-500 mt-1">
           Scan or enter an IMEI to look up a device, record the holder's details, capture GPS, and pin it on the map.
-          {mapped.length > 0 && <span className="ml-2 font-semibold text-zamtel-green">{mapped.length} device{mapped.length !== 1 ? 's' : ''} mapped so far.</span>}
+          {mapped.length > 0 && (
+          <span className="ml-2 inline-flex items-center gap-2">
+            <span className="font-semibold text-zamtel-green">{mapped.length} mapped</span>
+            <span className="inline-flex items-center gap-1 text-green-700 font-semibold">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />
+              {onlineCount} online
+            </span>
+            <span className="inline-flex items-center gap-1 text-gray-500 font-semibold">
+              <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" />
+              {offlineCount} offline
+            </span>
+          </span>
+        )}
         </p>
       </div>
 
@@ -287,10 +324,30 @@ export default function MapDevicePage() {
         {/* ── RIGHT: Live map of all mapped devices ── */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-              <span className="text-xl">🗺️</span> Live Device Map
-              <span className="ml-auto text-xs text-gray-400">{mapped.length} pinned</span>
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold text-gray-800 flex items-center gap-2">
+                <span className="text-xl">🗺️</span> Live Device Map
+              </h2>
+              <span className="text-xs text-gray-400">{filteredMapped.length} of {mapped.length} shown</span>
+            </div>
+            {/* Filter tabs */}
+            <div className="flex gap-2">
+              {([['all', `All (${mapped.length})`, '⬤'], ['online', `Online (${onlineCount})`, '🟢'], ['offline', `Offline (${offlineCount})`, '⚫']] as [FilterMode, string, string][]).map(([f, label, dot]) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    filter === f
+                      ? f === 'online'  ? 'bg-green-100 text-green-800 border border-green-300'
+                      : f === 'offline' ? 'bg-gray-100 text-gray-800 border border-gray-300'
+                      : 'bg-zamtel-green text-white'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <span>{dot}</span>{label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {mapLoaded && (
@@ -304,38 +361,52 @@ export default function MapDevicePage() {
                 {/* Fly to newly captured GPS */}
                 {lat && lng && <FlyTo lat={lat} lng={lng} />}
 
-                {/* Saved mapped devices */}
-                {mapped.map(d => (
-                  <CircleMarker
-                    key={d.id}
-                    center={[d.mapLatitude, d.mapLongitude]}
-                    radius={8}
-                    pathOptions={{
-                      color: STATUS_COLOR[d.status] || '#6B7280',
-                      fillColor: STATUS_COLOR[d.status] || '#6B7280',
-                      fillOpacity: 0.85,
-                      weight: 1.5,
-                    }}
-                  >
-                    <Popup maxWidth={260}>
-                      <div className="text-sm space-y-1 p-1">
-                        <div className="font-bold text-gray-900">{d.dealerCode}</div>
-                        {d.agentName    && <div className="text-gray-700">Agent: {d.agentName}</div>}
-                        {d.phoneModel   && <div className="text-gray-600">Model: {d.phoneModel}</div>}
-                        {d.imei1        && <div className="text-gray-500 font-mono text-xs">IMEI1: {d.imei1}</div>}
-                        {d.imei2        && <div className="text-gray-500 font-mono text-xs">IMEI2: {d.imei2}</div>}
-                        <div className="border-t pt-1 mt-1">
-                          {d.holderName    && <div className="font-semibold text-gray-800">👤 {d.holderName}</div>}
-                          {d.holderNrc     && <div className="text-gray-600">NRC: {d.holderNrc}</div>}
-                          {d.holderContact && <div className="text-gray-600">📞 {d.holderContact}</div>}
+                {/* Saved mapped devices — coloured by online/offline */}
+                {filteredMapped.map(d => {
+                  const online = isOnline(d);
+                  const pinColor = online ? '#00843D' : '#6B7280';
+                  const borderColor = online ? '#00843D' : '#374151';
+                  return (
+                    <CircleMarker
+                      key={d.id}
+                      center={[d.mapLatitude, d.mapLongitude]}
+                      radius={online ? 10 : 8}
+                      pathOptions={{
+                        color: borderColor,
+                        fillColor: pinColor,
+                        fillOpacity: online ? 0.9 : 0.55,
+                        weight: online ? 2.5 : 1.5,
+                      }}
+                    >
+                      <Popup maxWidth={270}>
+                        <div className="text-sm space-y-1 p-1">
+                          {/* Online/Offline badge */}
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-gray-900">{d.dealerCode}</span>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${
+                              online ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${online ? 'bg-green-500' : 'bg-gray-400'}`} />
+                              {online ? 'Online' : 'Offline'}
+                            </span>
+                          </div>
+                          <div className="text-gray-400 text-xs">Last seen: {lastSeen(d)}</div>
+                          {d.agentName  && <div className="text-gray-700">Agent: {d.agentName}</div>}
+                          {d.phoneModel && <div className="text-gray-600">Model: {d.phoneModel}</div>}
+                          {d.imei1      && <div className="text-gray-500 font-mono text-xs">IMEI1: {d.imei1}</div>}
+                          {d.imei2      && <div className="text-gray-500 font-mono text-xs">IMEI2: {d.imei2}</div>}
+                          <div className="border-t pt-1 mt-1">
+                            {d.holderName    && <div className="font-semibold text-gray-800">👤 {d.holderName}</div>}
+                            {d.holderNrc     && <div className="text-gray-600">NRC: {d.holderNrc}</div>}
+                            {d.holderContact && <div className="text-gray-600">📞 {d.holderContact}</div>}
+                          </div>
+                          {d.province && <div className="text-gray-500">{d.province}</div>}
+                          {d.mappedBy && <div className="text-gray-400 text-xs">Mapped by {d.mappedBy.name}</div>}
                         </div>
-                        {d.province && <div className="text-gray-500">{d.province}</div>}
-                        {d.mappedBy  && <div className="text-gray-400 text-xs">Mapped by {d.mappedBy.name}</div>}
-                        {d.mappedAt  && <div className="text-gray-400 text-xs">{new Date(d.mappedAt).toLocaleDateString()}</div>}
-                      </div>
-                    </Popup>
-                  </CircleMarker>
-                ))}
+                      </Popup>
+                    </CircleMarker>
+                  );
+                })}
 
                 {/* Preview pin for current GPS capture (before saving) */}
                 {lat && lng && !saving && (
@@ -356,16 +427,26 @@ export default function MapDevicePage() {
           )}
 
           {/* Map legend */}
-          <div className="px-5 py-3 border-t border-gray-100 flex flex-wrap gap-3 text-xs text-gray-500">
-            {Object.entries(STATUS_COLOR).slice(0, 5).map(([s, c]) => (
-              <span key={s} className="flex items-center gap-1">
-                <span className="inline-block w-3 h-3 rounded-full" style={{ background: c }} />
-                {s.replace(/_/g, ' ')}
-              </span>
-            ))}
-            <span className="flex items-center gap-1">
+          <div className="px-5 py-3 border-t border-gray-100 flex flex-wrap gap-3 text-xs text-gray-600">
+            <span className="flex items-center gap-1.5 font-semibold">
+              <span className="inline-block w-3 h-3 rounded-full bg-zamtel-green" />
+              Online / Active
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-full bg-gray-400" />
+              Offline / Inactive
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-full" style={{ background: '#DC2626' }} />
+              Police report pending
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-3 rounded-full" style={{ background: '#D97706' }} />
+              Damage pending
+            </span>
+            <span className="flex items-center gap-1.5">
               <span className="inline-block w-3 h-3 rounded-full bg-zamtel-pink" />
-              current
+              Current GPS
             </span>
           </div>
         </div>

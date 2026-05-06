@@ -8,9 +8,11 @@ interface MappedDevice {
   id: string; dealerCode: string; agentName?: string; phoneModel?: string;
   province?: string; status: string;
   holderName?: string; holderNrc?: string; holderContact?: string;
-  mapLatitude: number; mapLongitude: number; mappedAt?: string;
+  mapLatitude: number; mapLongitude: number; mappedAt?: string; updatedAt?: string;
   mappedBy?: { name: string };
 }
+
+const isOnline = (d: MappedDevice) => d.status === 'active';
 
 export default function DeviceMap() {
   const [points, setPoints] = useState<MapPoint[]>([]);
@@ -68,34 +70,42 @@ export default function DeviceMap() {
             </Popup>
           </CircleMarker>
         ))}
-        {/* Holder-mapped device pins (larger, pink border) */}
-        {mapped.map(d => (
-          <CircleMarker
-            key={`md-${d.id}`}
-            center={[d.mapLatitude, d.mapLongitude]}
-            radius={10}
-            pathOptions={{
-              color: '#E4007C',
-              fillColor: STATUS_COLORS[d.status as any] || '#6B7280',
-              fillOpacity: 0.9,
-              weight: 2.5,
-            }}
-          >
-            <Popup maxWidth={240}>
-              <div className="text-sm space-y-0.5">
-                <div className="font-bold">{d.dealerCode}</div>
-                {d.agentName    && <div>{d.agentName}</div>}
-                {d.phoneModel   && <div className="text-gray-500">{d.phoneModel}</div>}
-                <div className="border-t pt-1 mt-1">
-                  {d.holderName    && <div className="font-semibold">👤 {d.holderName}</div>}
-                  {d.holderNrc     && <div className="text-gray-600 text-xs">NRC: {d.holderNrc}</div>}
-                  {d.holderContact && <div className="text-gray-600 text-xs">📞 {d.holderContact}</div>}
+        {/* Holder-mapped device pins — green = online, grey = offline */}
+        {mapped.map(d => {
+          const online = isOnline(d);
+          return (
+            <CircleMarker
+              key={`md-${d.id}`}
+              center={[d.mapLatitude, d.mapLongitude]}
+              radius={online ? 10 : 8}
+              pathOptions={{
+                color: online ? '#00843D' : '#374151',
+                fillColor: online ? '#00843D' : '#6B7280',
+                fillOpacity: online ? 0.9 : 0.55,
+                weight: 2.5,
+              }}
+            >
+              <Popup maxWidth={240}>
+                <div className="text-sm space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold">{d.dealerCode}</span>
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${online ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                      {online ? '🟢 Online' : '⚫ Offline'}
+                    </span>
+                  </div>
+                  {d.agentName  && <div>{d.agentName}</div>}
+                  {d.phoneModel && <div className="text-gray-500">{d.phoneModel}</div>}
+                  <div className="border-t pt-1 mt-1">
+                    {d.holderName    && <div className="font-semibold">👤 {d.holderName}</div>}
+                    {d.holderNrc     && <div className="text-gray-600 text-xs">NRC: {d.holderNrc}</div>}
+                    {d.holderContact && <div className="text-gray-600 text-xs">📞 {d.holderContact}</div>}
+                  </div>
+                  {d.province && <div className="text-gray-400 text-xs">{d.province}</div>}
                 </div>
-                {d.province && <div className="text-gray-400 text-xs">{d.province}</div>}
-              </div>
-            </Popup>
-          </CircleMarker>
-        ))}
+              </Popup>
+            </CircleMarker>
+          );
+        })}
       </MapContainer>
 
       {/* Legend */}
